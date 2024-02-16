@@ -38,3 +38,4 @@ Ao contribuir com código para este projeto, por favor, mantenha um estilo de c�
 ## Licença
 
 Ao enviar uma contribuição, você concorda que sua contribuição será licenciada sob a [Licença MIT](LICENSE) que rege este projeto.
+
