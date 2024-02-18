@@ -8,11 +8,14 @@ Este script simplifica significativamente o processo de configuração do SSL pa
 
 ## Como Usar
 
+[Assista o vídeo explicativo no YouTube](https://www.youtube.com/watch?v=rrrSH9AMUmg "Assista o vídeo explicativo no YouTube")
+
 1. Execute o script como administrador.
 2. Siga as instruções apresentadas pelo script para fornecer o diretório de instalação do WampServer, se necessário.
 3. O script irá gerar o certificado SSL e configurar o Apache automaticamente.
 4. Após a conclusão, o certificado SSL estará pronto para uso no servidor local.
- 
+
+
 ## 🌟 Apoie o Wampserver SSL Setup!
 
 Use a chave PIX abaixo para fazer sua doação:
