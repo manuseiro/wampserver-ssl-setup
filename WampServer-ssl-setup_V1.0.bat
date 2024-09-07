@@ -1,12 +1,11 @@
 @echo off
-
 :: Limpa a tela
 cls
 
 :: Habilita a expansão atrasada de variáveis
 setlocal enabledelayedexpansion 
 
-:: Define variáveis
+:: Define variáveis comuns de instalação
 set "diretorios_instalacao=C:\wamp64 C:\wamp D:\wamp64 D:\wamp"
 set "diretorio_wamp="
 set "diretorio_apache="
@@ -29,6 +28,14 @@ chcp 65001 > nul
 for %%d in (%diretorios_instalacao%) do (
     if exist "%%d" (
         set "diretorio_wamp=%%d"
+        goto :verificar_diretorio_wamp
+    )
+)
+
+:: Se não encontrou o diretório, procura no registro do Windows (exemplo fictício)
+for /f "tokens=3*" %%a in ('reg query "HKLM\Software\WAMPServer" /v InstallDir 2^>nul') do (
+    if exist "%%b" (
+        set "diretorio_wamp=%%b"
         goto :verificar_diretorio_wamp
     )
 )
@@ -132,4 +139,3 @@ pause
 
 :: Abre a página do projeto no navegador
 start https://github.com/abmvdigital/wampserver-ssl-setup
-
