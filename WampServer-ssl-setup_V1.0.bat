@@ -15,9 +15,11 @@ set "logfile=wamp_ssl_setup.log"
 chcp 65001 > nul
 
 :: Verifica se o script está sendo executado como administrador
-if not "%__APPDIR__%cacls.exe"=="%SYSTEMROOT%\system32\cacls.exe" (
+openfiles >nul 2>&1
+if %errorlevel% neq 0 (
     echo Por favor, execute este script como administrador.
-    pause
+    echo Fechando em 5 segundos...
+    timeout /t 5 >nul
     exit /b
 )
 
