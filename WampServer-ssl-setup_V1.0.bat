@@ -3,12 +3,13 @@
 cls
 
 :: Habilita a expansão atrasada de variáveis
-setlocal enabledelayedexpansion 
+setlocal enabledelayedexpansion
 
 :: Define variáveis comuns de instalação
 set "diretorios_instalacao=C:\wamp64 C:\wamp D:\wamp64 D:\wamp"
 set "diretorio_wamp="
 set "diretorio_apache="
+set "logfile=wamp_ssl_setup.log"
 
 :: Corrige a exibição de caracteres especiais utf-8 no prompt de comando
 chcp 65001 > nul
@@ -16,6 +17,14 @@ chcp 65001 > nul
 :: Verifica se o script está sendo executado como administrador
 if not "%__APPDIR__%cacls.exe"=="%SYSTEMROOT%\system32\cacls.exe" (
     echo Por favor, execute este script como administrador.
+    pause
+    exit /b
+)
+
+:: Verifica se o OpenSSL está instalado
+where openssl >nul 2>&1
+if %errorlevel% neq 0 (
+    echo OpenSSL não foi encontrado no PATH. Por favor, instale ou adicione ao PATH.
     pause
     exit /b
 )
@@ -45,8 +54,10 @@ if not defined diretorio_apache (
     exit /b
 ) else (
     echo Diretório da instalação do Apache encontrado: %diretorio_apache%
+    call :backup_configs
     call :gerar_certificado
     call :configurar_apache
+    call :reiniciar_apache
     echo Certificado instalado com sucesso.
 )
 
@@ -79,6 +90,14 @@ for /d %%a in ("%diretorio_wamp%\bin\apache\apache*") do (
 )
 exit /b
 
+:backup_configs
+:: Cria backup dos arquivos de configuração
+echo Criando backup dos arquivos de configuração...
+copy "%diretorio_apache%\conf\httpd.conf" "%diretorio_apache%\conf\httpd.conf.bak"
+copy "%diretorio_apache%\conf\extra\httpd-ssl.conf" "%diretorio_apache%\conf\extra\httpd-ssl.conf.bak"
+echo Backup concluído. >> %logfile%
+exit /b
+
 :gerar_certificado
 cd /d "%diretorio_apache%\bin"
 
@@ -91,6 +110,10 @@ set "default_subj=/C=BR/ST=Minas Gerais/L=Minas Gerais/O=localhost/OU=localhost/
 set /p "informacoes_certificado=Digite as informações do certificado (deixe em branco para padrão): "
 if "%informacoes_certificado%"=="" set "informacoes_certificado=%default_subj%"
 
+:: Solicita nome do certificado
+set /p "nome_certificado=Digite o nome do certificado (padrão: server): "
+if "%nome_certificado%"=="" set "nome_certificado=server"
+
 :: Cria o arquivo de configuração do certificado
 (
 echo authorityKeyIdentifier=keyid,issuer
@@ -101,21 +124,27 @@ echo [alt_names]
 echo DNS.1 = localhost
 ) > domains.ext
 
+:: Solicita domínios adicionais
+set /p "dominios_adicionais=Digite domínios adicionais (separados por espaço, ou deixe em branco): "
+if not "%dominios_adicionais%"=="" (
+    echo DNS.2 = %dominios_adicionais% >> domains.ext
+)
+
 :: Cria a requisição do certificado
-openssl req -new -out server.csr -passout pass:%senha_certificado% -subj "%informacoes_certificado%"
+openssl req -new -out "%nome_certificado%.csr" -passout pass:%senha_certificado% -subj "%informacoes_certificado%" >> %logfile% 2>&1
 
 :: Gera a chave privada
-openssl rsa -in privkey.pem -out server.key -passin pass:%senha_certificado%
+openssl rsa -in privkey.pem -out "%nome_certificado%.key" -passin pass:%senha_certificado% >> %logfile% 2>&1
 
 :: Gera o certificado
-openssl x509 -in server.csr -out server.crt -req -signkey server.key -days 3650 -sha256 -extfile domains.ext
+openssl x509 -in "%nome_certificado%.csr" -out "%nome_certificado%.crt" -req -signkey "%nome_certificado%.key" -days 3650 -sha256 -extfile domains.ext >> %logfile% 2>&1
 
 :: Remove arquivos desnecessários
-del privkey.pem server.csr domains.ext
+del privkey.pem "%nome_certificado%.csr" domains.ext
 
 :: Move os arquivos para o diretório de configuração do Apache
-move /y server.crt "%diretorio_apache%\conf\server.crt"
-move /y server.key "%diretorio_apache%\conf\server.key"
+move /y "%nome_certificado%.crt" "%diretorio_apache%\conf\server.crt"
+move /y "%nome_certificado%.key" "%diretorio_apache%\conf\server.key"
 
 exit /b
 
@@ -133,6 +162,18 @@ powershell -Command "(Get-Content '%arquivo_httpd_ssl_conf%') -replace 'ServerNa
 
 :: Instala o certificado
 set "caminho_certificado=%diretorio_apache%\conf\server.crt"
-certutil -addstore -user "Root" "%caminho_certificado%"
+certutil -addstore -user "Root" "%caminho_certificado%" >> %logfile% 2>&1
 
+exit /b
+
+:reiniciar_apache
+:: Reinicia o serviço do Apache
+echo Reiniciando o Apache...
+net stop wampapache64 >nul 2>&1
+net start wampapache64 >nul 2>&1
+if %errorlevel% neq 0 (
+    echo Falha ao reiniciar o Apache. Verifique as permissões e tente novamente.
+    exit /b
+)
+echo Apache reiniciado com sucesso.
 exit /b
