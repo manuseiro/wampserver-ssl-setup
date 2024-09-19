@@ -11,6 +11,8 @@ set "diretorios_instalacao=A:\wamp64 A:\wamp C:\wamp64 C:\wamp D:\wamp64 D:\wamp
 set "diretorio_wamp="
 set "diretorio_apache="
 set "log_file=%~dp0ssl_setup.log"
+set "openssl_exe=openssl.exe"
+set "apache_service_name=wampapache64"  :: Nome do serviço Apache para WampServer 64-bit
 
 :: Corrige a exibição de caracteres especiais utf-8 no prompt de comando
 chcp 65001 > nul
@@ -70,6 +72,24 @@ if not defined diretorio_wamp (
     echo Novo diretório do WAMP informado: !diretorio_wamp! >> "%log_file%"
 )
 echo Diretório da instalação do WAMP confirmado: %diretorio_wamp%
+
+:: Verificar se o OpenSSL está instalado
+if not exist "%diretorio_wamp%\bin\%openssl_exe%" (
+    echo OpenSSL não encontrado em %diretorio_wamp%\bin. Certifique-se de que o WampServer está instalado corretamente e que OpenSSL está disponível.
+    echo OpenSSL não encontrado. >> "%log_file%"
+    pause
+    exit /b
+)
+
+:: Verificar se o WampServer está em execução
+echo Verificando se o WampServer está em execução...
+sc query %apache_service_name% | findstr /I "RUNNING" >nul
+if %errorlevel% equ 0 (
+    echo O WampServer está em execução. Por favor, pare o serviço antes de continuar.
+    echo O WampServer está em execução. >> "%log_file%"
+    pause
+    exit /b
+)
 
 :: Busca o diretório de instalação do Apache
 for /d %%a in ("%diretorio_wamp%\bin\apache\apache*") do (
@@ -152,20 +172,20 @@ powershell -Command "(Get-Content '%arquivo_httpd_conf%') -replace '#LoadModule 
 :: Substitui "#Include conf/extra/httpd-ssl.conf" por "Include conf/extra/httpd-ssl.conf"
 powershell -Command "(Get-Content '%arquivo_httpd_conf%') -replace '#Include conf/extra/httpd-ssl.conf', 'Include conf/extra/httpd-ssl.conf' | Set-Content '%arquivo_httpd_conf%'" >> "%log_file%"
 
-:: Substitui "#LoadModule socache_shmcb_module modules/mod_socache_shmcb.so" por "LoadModule socache_shmcb_module modules/mod_socache_shmcb.so"
-powershell -Command "(Get-Content '%arquivo_httpd_conf%') -replace '#LoadModule socache_shmcb_module modules/mod_socache_shmcb.so', 'LoadModule socache_shmcb_module modules/mod_socache_shmcb.so' | Set-Content '%arquivo_httpd_conf%'" >> "%log_file%"
-
-:: Bloco de código para configurar o arquivo httpd-ssl.conf
+:: Adiciona as diretivas SSL no arquivo httpd-ssl.conf
 set "arquivo_httpd_ssl_conf=%diretorio_apache%\conf\extra\httpd-ssl.conf"
 
-:: Substitui a linha "DocumentRoot" por "DocumentRoot "${INSTALL_DIR}/www""
-powershell -Command "(Get-Content '%arquivo_httpd_ssl_conf%') -replace 'DocumentRoot.*', 'DocumentRoot "${INSTALL_DIR}/www"' | Set-Content '%arquivo_httpd_ssl_conf%'" >> "%log_file%"
+echo Listen 443 >> "%arquivo_httpd_ssl_conf%"
+echo <VirtualHost _default_:443> >> "%arquivo_httpd_ssl_conf%"
+echo SSLEngine on >> "%arquivo_httpd_ssl_conf%"
+echo SSLCertificateFile "%diretorio_apache%\conf\server.crt" >> "%arquivo_httpd_ssl_conf%"
+echo SSLCertificateKeyFile "%diretorio_apache%\conf\server.key" >> "%arquivo_httpd_ssl_conf%"
+echo </VirtualHost> >> "%arquivo_httpd_ssl_conf%"
 
-:: Substitui a linha "ServerName" por "ServerName localhost:443"
-powershell -Command "(Get-Content '%arquivo_httpd_ssl_conf%') -replace 'ServerName.*', 'ServerName localhost:443' | Set-Content '%arquivo_httpd_ssl_conf%'" >> "%log_file%"
+:: Reinicia o serviço Apache
+echo Reiniciando o Apache...
+net stop %apache_service_name% >> "%log_file%"
+net start %apache_service_name% >> "%log_file%"
 
-:: Finalização
-echo SSL configurado com sucesso! >> "%log_file%"
-echo A configuração do SSL foi concluída com sucesso!
+echo Configuração do SSL concluída. >> "%log_file%"
 pause
-exit
