@@ -64,7 +64,7 @@ if not defined diretorio_apache (
 )
 
 :: Abre a página do projeto no navegador
-start https://github.com/abmvdigital/wampserver-ssl-setup
+start https://github.com/manuseiro/wampserver-ssl-setup
 
 exit /b
 
